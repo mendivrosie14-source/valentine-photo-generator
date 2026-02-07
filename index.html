@@ -1,19 +1,200 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Valentine Photo Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        #photoCanvas {
-            background-color: #ffcccc; /* Update this color as desired */
-            width: 500px;
-            height: 500px;
-            border: 1px solid #000;
+        :root {
+            --pink: #ff4d6d;
+            --light-pink: #fff0f3;
+            --gold: #ffd700;
         }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--light-pink); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .controls { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; width: 100%; max-width: 600px; display: grid; gap: 15px; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        button, label { padding: 10px 15px; border: none; border-radius: 8px; background: var(--pink); color: white; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        .canvas-container { border: 5px solid white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin: 0 auto; }
+        input[type="text"] { padding: 10px; border-radius: 8px; border: 1px solid #ddd; flex-grow: 1; }
+        .text-input-row { display: flex; gap: 10px; }
+        h3 { margin-bottom: 5px; color: #c9184a; font-size: 1.1rem; border-bottom: 2px solid var(--light-pink); padding-bottom: 5px; }
     </style>
 </head>
 <body>
-    <div id="photoCanvas"></div>
+
+    <div class="controls">
+        <h3>1. Upload Your Photo</h3>
+        <input type="file" id="upload" accept="image/*">
+
+        <h3>2. Fill in the Blank (Custom Text)</h3>
+        <div class="text-input-row">
+            <input type="text" id="customText" placeholder="Type your message here...">
+            <button onclick="addCustomText()" style="background: #c9184a;">Add Text</button>
+        </div>
+
+        <h3>3. Add Decorations</h3>
+        <div class="btn-group">
+            <button onclick="addSticker('❤️')">Heart Balloons</button>
+            <button onclick="addSticker('🍫')">Heart Chocolates</button>
+            <button onclick="addSticker('🫕')">Chocolates</button>
+            <button onclick="addSticker('🕯️')">Candles</button>
+            <button onclick="addSticker('⭐')">Little Stars</button>
+            <button onclick="addSticker('✨')">Golden Sprinkles</button>
+        </div>
+
+        <h3>4. Color Scheme</h3>
+        <div class="btn-group">
+            <button onclick="setColorScheme('normal')">Normal Colors</button>
+            <button onclick="setColorScheme('gradient')">Romantic Gradient</button>
+        </div>
+
+        <h3>5. Valentine Theme Background</h3>
+        <div class="btn-group">
+            <button onclick="setBG('none')">Original</button>
+            <button onclick="setBG('hearts')">Patterned Hearts</button>
+            <button onclick="setBG('soft')">Soft Pink Glow</button>
+        </div>
+        
+        <button style="background: #333; margin-top: 10px;" onclick="downloadImage()">Download Your Valentine</button>
+    </div>
+
+    <canvas id="canvas" width="600" height="600"></canvas>
+
     <script>
-        // Your JavaScript code here
+        const canvas = new fabric.Canvas('canvas');
+        let userImage = null;
+        let gradientRect = null;
+        let bgRect = null;
+
+        // Photo Upload Logic
+        document.getElementById('upload').onchange = function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imgObj = new Image();
+                imgObj.src = event.target.result;
+                imgObj.onload = function() {
+                    const image = new fabric.Image(imgObj);
+                    // Scale image to fit canvas while maintaining aspect ratio
+                    const ratio = Math.min(600 / image.width, 600 / image.height);
+                    image.scale(ratio);
+                    canvas.clear();
+                    canvas.add(image);
+                    canvas.centerObject(image);
+                    canvas.sendToBack(image);
+                    userImage = image;
+                    bgRect = null;
+                    gradientRect = null;
+                };
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        // Fill in the Blank Logic
+        function addCustomText() {
+            const textContent = document.getElementById('customText').value;
+            if (!textContent) return alert("Please type something first!");
+            
+            const text = new fabric.IText(textContent, {
+                left: 150,
+                top: 150,
+                fontFamily: 'Georgia',
+                fontSize: 40,
+                fill: '#c9184a',
+                fontWeight: 'bold',
+                stroke: '#ffffff',
+                strokeWidth: 1,
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            document.getElementById('customText').value = "";
+        }
+
+        // Add Decoration Elements
+        function addSticker(emoji) {
+            const text = new fabric.Text(emoji, {
+                fontSize: 60,
+                left: Math.random() * 400 + 50,
+                top: Math.random() * 400 + 50,
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+        }
+
+        // Color Scheme (Gradient Overlay on Canvas)
+        function setColorScheme(type) {
+            if (gradientRect) canvas.remove(gradientRect);
+            
+            if (type === 'gradient') {
+                gradientRect = new fabric.Rect({
+                    left: 0, top: 0,
+                    width: canvas.width, height: canvas.height,
+                    selectable: false,
+                    evented: false,
+                    fill: new fabric.Gradient({
+                        type: 'linear',
+                        coords: { x1: 0, y1: 0, x2: canvas.width, y2: canvas.height },
+                        colorStops: [
+                            { offset: 0, color: 'rgba(255, 77, 109, 0.3)' },
+                            { offset: 1, color: 'rgba(255, 215, 0, 0.15)' }
+                        ]
+                    })
+                });
+                canvas.add(gradientRect);
+                gradientRect.bringToFront();
+            }
+            canvas.renderAll();
+        }
+
+        // Background Theme - Applies background to the CANVAS, not the page
+        function setBG(theme) {
+            if (!userImage) return alert("Upload a photo first!");
+            
+            // Remove old background if exists
+            if (bgRect) canvas.remove(bgRect);
+            
+            if (theme === 'hearts') {
+                // Create pink background rectangle on the canvas
+                bgRect = new fabric.Rect({
+                    left: 0, top: 0,
+                    width: 600, height: 600,
+                    fill: '#ffb3c1',
+                    selectable: false,
+                    evented: false,
+                });
+                canvas.add(bgRect);
+                canvas.sendToBack(bgRect);
+                canvas.sendToBack(userImage);
+                userImage.set({ opacity: 0.7 });
+            } else if (theme === 'soft') {
+                // Create soft pink background rectangle on the canvas
+                bgRect = new fabric.Rect({
+                    left: 0, top: 0,
+                    width: 600, height: 600,
+                    fill: '#ffb3c1',
+                    selectable: false,
+                    evented: false,
+                });
+                canvas.add(bgRect);
+                canvas.sendToBack(bgRect);
+                canvas.sendToBack(userImage);
+                userImage.set({ opacity: 0.85 });
+            } else {
+                // Original - no background
+                userImage.set({ opacity: 1 });
+            }
+            canvas.renderAll();
+        }
+
+        // Download Logic
+        function downloadImage() {
+            const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
+            const link = document.createElement('a');
+            link.download = 'my-valentine-photo.png';
+            link.href = dataURL;
+            link.click();
+        }
     </script>
 </body>
 </html>
